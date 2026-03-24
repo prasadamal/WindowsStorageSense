@@ -1,0 +1,469 @@
+"""
+WindowsStorageSense — Python FastAPI backend.
+
+Exposes a local HTTP API on port 8765.
+All communication with the Electron frontend goes through this API.
+
+Run:  uvicorn main:app --host 127.0.0.1 --port 8765
+"""
+
+import argparse
+import asyncio
+import sys
+from contextlib import asynccontextmanager
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from database import init_db, get_connection, get_setting, set_setting
+from scanner import (
+    list_drives,
+    start_scan,
+    get_scan_status,
+    get_top_files,
+    get_category_summary,
+    get_latest_session_id,
+)
+from duplicate_finder import find_duplicates, get_duplicate_groups
+from stale_files import get_stale_files
+from junk_cleaner import scan_junk, delete_junk_categories
+from startup_manager import list_startup_items, toggle_startup_item
+from game_library import detect_all_games, get_games_from_db, get_total_game_size
+from drive_optimizer import get_drive_optimization
+from download_manager import list_downloads, organize_downloads, delete_stale_downloads
+from scheduler import start_scheduler, stop_scheduler, register_windows_task
+from safety import is_blocked_path
+
+import send2trash
+
+
+# ---------------------------------------------------------------------------
+# App lifecycle
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    start_scheduler()
+    yield
+    stop_scheduler()
+
+
+app = FastAPI(
+    title="WindowsStorageSense API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:*", "file://"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------------------------------------------------------------------------
+# Pydantic models
+# ---------------------------------------------------------------------------
+
+class ScanRequest(BaseModel):
+    drive_paths: list[str]
+
+
+class DeleteJunkRequest(BaseModel):
+    category_ids: list[str]
+    session_id: int
+
+
+class UninstallRequest(BaseModel):
+    app_name: str
+    uninstall_cmd: str
+
+
+class DeleteLeftoversRequest(BaseModel):
+    paths: list[str]
+
+
+class ToggleStartupRequest(BaseModel):
+    name: str
+    source_path: str
+    enabled: bool
+
+
+class SettingRequest(BaseModel):
+    key: str
+    value: str
+
+
+class DeleteFilesRequest(BaseModel):
+    paths: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Health
+# ---------------------------------------------------------------------------
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "version": "1.0.0"}
+
+
+# ---------------------------------------------------------------------------
+# Drives
+# ---------------------------------------------------------------------------
+
+@app.get("/drives")
+async def get_drives():
+    return {"drives": list_drives()}
+
+
+# ---------------------------------------------------------------------------
+# Scanning
+# ---------------------------------------------------------------------------
+
+@app.post("/scan/start")
+async def api_start_scan(req: ScanRequest, background_tasks: BackgroundTasks):
+    session_id = await start_scan(req.drive_paths)
+    return {"session_id": session_id, "status": "started"}
+
+
+@app.get("/scan/{session_id}/status")
+async def api_scan_status(session_id: int):
+    return await get_scan_status(session_id)
+
+
+@app.get("/scan/latest")
+async def api_latest_session():
+    sid = await get_latest_session_id()
+    if sid is None:
+        return {"session_id": None}
+    status = await get_scan_status(sid)
+    return status
+
+
+# ---------------------------------------------------------------------------
+# Dashboard / Overview
+# ---------------------------------------------------------------------------
+
+@app.get("/dashboard")
+async def api_dashboard():
+    """Aggregated dashboard data loaded from cached SQLite results."""
+    sid = await get_latest_session_id()
+    if sid is None:
+        return {"has_data": False}
+
+    drives = list_drives()
+    top_files = await get_top_files(sid, limit=5)
+    categories = await get_category_summary(sid)
+
+    # System health score (0-100)
+    junk_info = scan_junk(sid)
+    total_junk = sum(c.get("size_bytes", 0) for c in junk_info)
+    total_drive_space = sum(d.get("total_bytes", 0) for d in drives)
+    junk_pct = (total_junk / total_drive_space * 100) if total_drive_space else 0
+    health_score = max(0, min(100, int(100 - junk_pct * 2)))
+
+    # Quick wins
+    quick_wins = []
+    downloads_info = list_downloads()
+    if downloads_info["total_bytes"] > 1_073_741_824:
+        gb = downloads_info["total_bytes"] / 1_073_741_824
+        quick_wins.append({
+            "title": "Downloads Folder",
+            "description": f"Your Downloads folder has {gb:.1f} GB — review it",
+            "action": "downloads",
+            "bytes": downloads_info["total_bytes"],
+        })
+    if total_junk > 536_870_912:
+        gb = total_junk / 1_073_741_824
+        quick_wins.append({
+            "title": "Junk Files",
+            "description": f"{gb:.1f} GB of junk files detected — clean now",
+            "action": "junk",
+            "bytes": total_junk,
+        })
+
+    return {
+        "has_data": True,
+        "session_id": sid,
+        "drives": drives,
+        "top_files": top_files,
+        "categories": categories,
+        "health_score": health_score,
+        "junk_bytes": total_junk,
+        "quick_wins": quick_wins,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Files
+# ---------------------------------------------------------------------------
+
+@app.get("/files/top")
+async def api_top_files(session_id: Optional[int] = None, limit: int = 50):
+    if session_id is None:
+        session_id = await get_latest_session_id()
+    if session_id is None:
+        return {"files": []}
+    return {"files": await get_top_files(session_id, limit=limit)}
+
+
+@app.get("/files/categories")
+async def api_categories(session_id: Optional[int] = None):
+    if session_id is None:
+        session_id = await get_latest_session_id()
+    if session_id is None:
+        return {"categories": []}
+    return {"categories": await get_category_summary(session_id)}
+
+
+@app.get("/files/by-category/{category}")
+async def api_files_by_category(category: str, session_id: Optional[int] = None, limit: int = 200):
+    if session_id is None:
+        session_id = await get_latest_session_id()
+    if session_id is None:
+        return {"files": []}
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT path, name, extension, size_bytes, category, last_accessed, last_modified, drive_path
+            FROM files
+            WHERE session_id=? AND category=? AND is_symlink=0
+            ORDER BY size_bytes DESC
+            LIMIT ?
+            """,
+            (session_id, category, limit),
+        ).fetchall()
+        return {"category": category, "files": [dict(r) for r in rows]}
+    finally:
+        conn.close()
+
+
+@app.post("/files/delete")
+async def api_delete_files(req: DeleteFilesRequest):
+    """Send specified files to Recycle Bin — never permanent delete."""
+    errors = []
+    deleted = 0
+    for path in req.paths:
+        if is_blocked_path(path):
+            errors.append(f"Blocked path: {path}")
+            continue
+        try:
+            send2trash.send2trash(path)
+            deleted += 1
+        except Exception as e:
+            errors.append(f"{path}: {e}")
+    return {"deleted": deleted, "errors": errors}
+
+
+# ---------------------------------------------------------------------------
+# Duplicates
+# ---------------------------------------------------------------------------
+
+@app.post("/duplicates/scan")
+async def api_find_duplicates(
+    background_tasks: BackgroundTasks,
+    session_id: Optional[int] = None,
+    include_images: bool = True,
+):
+    if session_id is None:
+        session_id = await get_latest_session_id()
+    if session_id is None:
+        raise HTTPException(404, "No scan session found. Run a disk scan first.")
+
+    def run_dupe_scan():
+        find_duplicates(session_id, include_images=include_images)
+
+    background_tasks.add_task(run_dupe_scan)
+    return {"status": "started", "session_id": session_id}
+
+
+@app.get("/duplicates")
+async def api_get_duplicates(session_id: Optional[int] = None):
+    if session_id is None:
+        session_id = await get_latest_session_id()
+    if session_id is None:
+        return {"groups": []}
+    return {"groups": get_duplicate_groups(session_id)}
+
+
+# ---------------------------------------------------------------------------
+# Stale Files
+# ---------------------------------------------------------------------------
+
+@app.get("/stale")
+async def api_stale_files(session_id: Optional[int] = None, threshold_days: int = 365):
+    if session_id is None:
+        session_id = await get_latest_session_id()
+    if session_id is None:
+        return {"files": [], "total_bytes": 0}
+    return get_stale_files(session_id, threshold_days=threshold_days)
+
+
+# ---------------------------------------------------------------------------
+# Junk Cleaner
+# ---------------------------------------------------------------------------
+
+@app.get("/junk/scan")
+async def api_junk_scan(session_id: Optional[int] = None):
+    if session_id is None:
+        session_id = await get_latest_session_id()
+    categories = scan_junk(session_id or 0)
+    return {"categories": categories}
+
+
+@app.post("/junk/delete")
+async def api_junk_delete(req: DeleteJunkRequest):
+    result = delete_junk_categories(req.category_ids)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Uninstaller
+# ---------------------------------------------------------------------------
+
+@app.get("/apps")
+async def api_list_apps():
+    try:
+        from uninstaller import list_installed_apps
+        apps = list_installed_apps()
+        return {"apps": apps}
+    except Exception as e:
+        return {"apps": [], "error": str(e)}
+
+
+@app.post("/apps/uninstall")
+async def api_uninstall(req: UninstallRequest):
+    from uninstaller import uninstall_app
+    return uninstall_app(req.app_name, req.uninstall_cmd)
+
+
+@app.get("/apps/leftovers")
+async def api_leftovers(app_name: str, install_location: str = ""):
+    from uninstaller import find_leftovers
+    return find_leftovers(app_name, install_location)
+
+
+@app.post("/apps/leftovers/delete")
+async def api_delete_leftovers(req: DeleteLeftoversRequest):
+    from uninstaller import delete_leftovers
+    return delete_leftovers(req.paths)
+
+
+# ---------------------------------------------------------------------------
+# Startup Manager
+# ---------------------------------------------------------------------------
+
+@app.get("/startup")
+async def api_startup_items():
+    try:
+        items = list_startup_items()
+        return {"items": items}
+    except Exception as e:
+        return {"items": [], "error": str(e)}
+
+
+@app.post("/startup/toggle")
+async def api_toggle_startup(req: ToggleStartupRequest):
+    return toggle_startup_item(req.name, req.source_path, req.enabled)
+
+
+# ---------------------------------------------------------------------------
+# Game Library
+# ---------------------------------------------------------------------------
+
+@app.get("/games")
+async def api_games(rescan: bool = False):
+    if rescan:
+        games = detect_all_games()
+    else:
+        games = get_games_from_db()
+    total = get_total_game_size()
+    return {"games": games, "total_bytes": total}
+
+
+# ---------------------------------------------------------------------------
+# Drive Optimizer
+# ---------------------------------------------------------------------------
+
+@app.get("/drives/optimize")
+async def api_drive_optimize(session_id: Optional[int] = None):
+    if session_id is None:
+        session_id = await get_latest_session_id()
+    if session_id is None:
+        return {"recommendations": {"applicable": False}}
+    return get_drive_optimization(session_id)
+
+
+# ---------------------------------------------------------------------------
+# Downloads
+# ---------------------------------------------------------------------------
+
+@app.get("/downloads")
+async def api_downloads(stale_days: int = 90):
+    return list_downloads(stale_days=stale_days)
+
+
+@app.post("/downloads/organize")
+async def api_organize_downloads():
+    return organize_downloads()
+
+
+@app.post("/downloads/delete-stale")
+async def api_delete_stale_downloads(stale_days: int = 90):
+    return delete_stale_downloads(stale_days=stale_days)
+
+
+# ---------------------------------------------------------------------------
+# Settings
+# ---------------------------------------------------------------------------
+
+@app.get("/settings")
+async def api_get_settings():
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT key, value FROM settings").fetchall()
+        return {r["key"]: r["value"] for r in rows}
+    finally:
+        conn.close()
+
+
+@app.post("/settings")
+async def api_set_setting(req: SettingRequest):
+    set_setting(req.key, req.value)
+    return {"success": True}
+
+
+# ---------------------------------------------------------------------------
+# Scheduler
+# ---------------------------------------------------------------------------
+
+@app.post("/scheduler/register-task")
+async def api_register_task(interval_days: int = 7):
+    return register_windows_task(interval_days=interval_days)
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--background-scan", action="store_true")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8765)
+    args = parser.parse_args()
+
+    if args.background_scan:
+        # Called by Task Scheduler
+        init_db()
+        from scheduler import _run_background_scan
+        _run_background_scan()
+    else:
+        import uvicorn
+        uvicorn.run("main:app", host=args.host, port=args.port, reload=False)
