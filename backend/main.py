@@ -10,10 +10,11 @@ Run:  uvicorn main:app --host 127.0.0.1 --port 8765
 import argparse
 import asyncio
 import sys
+import time
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -41,8 +42,38 @@ import quick_transfer as qt
 import smart_optimizer as so
 import deep_analyzer as da
 import internet_transfer as it_
+import system_monitor as sm
+import report_exporter as re_
 
 import send2trash
+
+
+# ---------------------------------------------------------------------------
+# Simple in-memory response cache
+# ---------------------------------------------------------------------------
+
+class _Cache:
+    """Lightweight TTL cache for expensive read-only endpoints."""
+    def __init__(self):
+        self._store: dict[str, tuple[float, object]] = {}
+
+    def get(self, key: str, ttl: float) -> Optional[object]:
+        entry = self._store.get(key)
+        if entry and (time.monotonic() - entry[0]) < ttl:
+            return entry[1]
+        return None
+
+    def set(self, key: str, value: object) -> None:
+        self._store[key] = (time.monotonic(), value)
+
+    def invalidate(self, key: str) -> None:
+        self._store.pop(key, None)
+
+    def invalidate_all(self) -> None:
+        self._store.clear()
+
+
+_cache = _Cache()
 
 
 # ---------------------------------------------------------------------------
@@ -242,6 +273,10 @@ async def api_latest_session():
 @app.get("/dashboard")
 async def api_dashboard():
     """Aggregated dashboard data loaded from cached SQLite results."""
+    cached = _cache.get("dashboard", ttl=30)
+    if cached is not None:
+        return cached
+
     sid = await get_latest_session_id()
     if sid is None:
         return {"has_data": False}
@@ -277,7 +312,10 @@ async def api_dashboard():
             "bytes": total_junk,
         })
 
-    return {
+    # Real-time system stats for dashboard widget
+    sys_stats = sm.get_full_snapshot()
+
+    result = {
         "has_data": True,
         "session_id": sid,
         "drives": drives,
@@ -286,7 +324,10 @@ async def api_dashboard():
         "health_score": health_score,
         "junk_bytes": total_junk,
         "quick_wins": quick_wins,
+        "system": sys_stats,
     }
+    _cache.set("dashboard", result)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -741,6 +782,102 @@ async def api_internet_upload(req: InternetUploadRequest):
 @app.post("/transfer/bluetooth")
 async def api_bluetooth_send():
     return it_.launch_bluetooth_send()
+
+
+# ---------------------------------------------------------------------------
+# System Monitor
+# ---------------------------------------------------------------------------
+
+@app.get("/system/stats")
+async def api_system_stats():
+    """Real-time CPU, RAM, disk I/O, and network snapshot."""
+    return sm.get_full_snapshot()
+
+
+@app.get("/system/processes")
+async def api_system_processes(limit: int = 15):
+    """Top processes by CPU usage."""
+    return {"processes": sm.get_top_processes(limit=limit)}
+
+
+# ---------------------------------------------------------------------------
+# One-click full cleanup
+# ---------------------------------------------------------------------------
+
+class OneClickCleanupRequest(BaseModel):
+    junk_session_id: Optional[int] = None
+    delete_empty_folders: bool = True
+    root_paths: list[str] = []
+
+
+@app.post("/cleanup/one-click")
+async def api_one_click_cleanup(req: OneClickCleanupRequest):
+    """Perform safe automatic cleanup: junk files + empty folders."""
+    report: dict = {"steps": [], "errors": []}
+
+    # Step 1: Junk files
+    try:
+        sid = req.junk_session_id
+        if sid is None:
+            sid = await get_latest_session_id()
+        junk_cats = scan_junk(sid or 0)
+        all_ids = [c["id"] for c in junk_cats if c.get("exists") and c.get("size_bytes", 0) > 0]
+        if all_ids:
+            result = delete_junk_categories(all_ids)
+            report["steps"].append({
+                "step": "Junk Cleaner",
+                "deleted": result.get("deleted", 0),
+                "errors": result.get("errors", []),
+            })
+        else:
+            report["steps"].append({"step": "Junk Cleaner", "deleted": 0, "errors": []})
+    except Exception as exc:
+        report["errors"].append(f"Junk clean failed: {exc}")
+
+    # Step 2: Empty folders
+    if req.delete_empty_folders and req.root_paths:
+        try:
+            empty = so.scan_empty_folders(req.root_paths)
+            if empty:
+                result = so.delete_empty_folders([f["path"] for f in empty])
+                report["steps"].append({
+                    "step": "Empty Folders",
+                    "deleted": result.get("deleted", 0),
+                    "errors": result.get("errors", []),
+                })
+            else:
+                report["steps"].append({"step": "Empty Folders", "deleted": 0, "errors": []})
+        except Exception as exc:
+            report["errors"].append(f"Empty folder clean failed: {exc}")
+
+    _cache.invalidate("dashboard")
+    return report
+
+
+# ---------------------------------------------------------------------------
+# Report export
+# ---------------------------------------------------------------------------
+
+@app.get("/report/export")
+async def api_export_report(session_id: Optional[int] = None):
+    """Generate and return a self-contained HTML storage report."""
+    html = await re_.generate_html_report(session_id=session_id)
+    return Response(
+        content=html,
+        media_type="text/html",
+        headers={"Content-Disposition": "attachment; filename=storage-sense-report.html"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cache control
+# ---------------------------------------------------------------------------
+
+@app.post("/cache/invalidate")
+async def api_invalidate_cache():
+    """Manually invalidate all cached responses (called after scan completes)."""
+    _cache.invalidate_all()
+    return {"cleared": True}
 
 
 # ---------------------------------------------------------------------------

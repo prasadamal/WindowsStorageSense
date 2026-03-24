@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, HardDrive, Files, Copy, Trash2, Gamepad2,
   Download, FolderOpen, Settings, Rocket, RefreshCw, Shield,
   FolderSearch, Music, Share2, Search, Sparkles, Layers,
-  BarChart2,
+  BarChart2, Activity, Keyboard,
 } from 'lucide-react';
 
 import useStore from './store';
+import { ToastProvider } from './components/Toast';
+import ErrorBoundary from './components/ErrorBoundary';
+import CommandPalette from './components/CommandPalette';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -27,6 +30,7 @@ import MediaOrganizerPage from './pages/MediaOrganizerPage';
 import QuickTransferPage from './pages/QuickTransferPage';
 import SmartOptimizerPage from './pages/SmartOptimizerPage';
 import DeepAnalyzerPage from './pages/DeepAnalyzerPage';
+import SystemMonitorPage from './pages/SystemMonitorPage';
 
 // ---------------------------------------------------------------------------
 // Sidebar navigation structure — grouped sections
@@ -37,6 +41,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/analyzer',  icon: BarChart2,       label: 'Deep Analyzer' },
+      { to: '/system',    icon: Activity,        label: 'System Monitor' },
     ],
   },
   {
@@ -70,11 +75,11 @@ const NAV_SECTIONS = [
   {
     label: 'System',
     items: [
-      { to: '/storage',       icon: HardDrive, label: 'Storage' },
-      { to: '/drives/optimize', icon: Shield,  label: 'Drive Advisor' },
-      { to: '/startup',       icon: Rocket,    label: 'Startup' },
+      { to: '/storage',       icon: HardDrive,  label: 'Storage' },
+      { to: '/drives/optimize', icon: Shield,   label: 'Drive Advisor' },
+      { to: '/startup',       icon: Rocket,     label: 'Startup' },
       { to: '/uninstaller',   icon: FolderOpen, label: 'Uninstaller' },
-      { to: '/games',         icon: Gamepad2,  label: 'Games' },
+      { to: '/games',         icon: Gamepad2,   label: 'Games' },
     ],
   },
   {
@@ -85,7 +90,7 @@ const NAV_SECTIONS = [
   },
 ];
 
-function Sidebar() {
+function Sidebar({ onCommandPalette }) {
   return (
     <aside className="w-56 flex-shrink-0 bg-surface-950 border-r border-slate-700/40 flex flex-col">
       {/* App branding */}
@@ -96,9 +101,21 @@ function Sidebar() {
           </div>
           <div>
             <span className="font-bold text-sm text-white tracking-tight">StorageSense</span>
-            <p className="text-xs text-slate-500 leading-none mt-0.5">v2.0</p>
+            <p className="text-xs text-slate-500 leading-none mt-0.5">v3.0</p>
           </div>
         </div>
+      </div>
+
+      {/* Search / command palette trigger */}
+      <div className="px-2 pt-3">
+        <button
+          onClick={onCommandPalette}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/50 text-slate-500 hover:text-slate-300 hover:border-slate-600/60 text-sm transition-all duration-150"
+        >
+          <Search className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="flex-1 text-left text-xs">Search…</span>
+          <kbd className="text-[10px] bg-slate-700 border border-slate-600 px-1.5 py-0.5 rounded font-mono">⌃K</kbd>
+        </button>
       </div>
 
       {/* Navigation */}
@@ -144,20 +161,23 @@ function Sidebar() {
   );
 }
 
-function AppShell({ children }) {
+function AppShell({ children, onCommandPalette }) {
   return (
     <div className="flex h-full">
-      <Sidebar />
+      <Sidebar onCommandPalette={onCommandPalette} />
       <main className="flex-1 overflow-auto bg-surface-900">
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
     </div>
   );
 }
 
-export default function App() {
+function AppInner() {
   const { onboardingComplete, setOnboardingComplete, fetchDrives, fetchSettings } = useStore();
   const [checking, setChecking] = useState(true);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
     const done = localStorage.getItem('onboarding_complete') === 'true';
@@ -165,6 +185,18 @@ export default function App() {
     setChecking(false);
     fetchDrives();
     fetchSettings();
+  }, []);
+
+  // Global Ctrl+K / Cmd+K shortcut for command palette
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   if (checking) {
@@ -178,8 +210,15 @@ export default function App() {
     );
   }
 
+  const wrap = (el) => (
+    <AppShell onCommandPalette={() => setPaletteOpen(true)}>
+      {el}
+    </AppShell>
+  );
+
   return (
-    <BrowserRouter>
+    <>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <Routes>
         {!onboardingComplete ? (
           <>
@@ -188,26 +227,37 @@ export default function App() {
           </>
         ) : (
           <>
-            <Route path="/dashboard"     element={<AppShell><Dashboard /></AppShell>} />
-            <Route path="/analyzer"      element={<AppShell><DeepAnalyzerPage /></AppShell>} />
-            <Route path="/explorer"      element={<AppShell><FileExplorerPage /></AppShell>} />
-            <Route path="/optimizer"     element={<AppShell><SmartOptimizerPage /></AppShell>} />
-            <Route path="/media"         element={<AppShell><MediaOrganizerPage /></AppShell>} />
-            <Route path="/downloads"     element={<AppShell><DownloadsPage /></AppShell>} />
-            <Route path="/junk"          element={<AppShell><JunkCleaner /></AppShell>} />
-            <Route path="/duplicates"    element={<AppShell><DuplicatesPage /></AppShell>} />
-            <Route path="/files"         element={<AppShell><FilesPage /></AppShell>} />
-            <Route path="/transfer"      element={<AppShell><QuickTransferPage /></AppShell>} />
-            <Route path="/storage"       element={<AppShell><StorageAnalyzer /></AppShell>} />
-            <Route path="/drives/optimize" element={<AppShell><DriveOptimizer /></AppShell>} />
-            <Route path="/startup"       element={<AppShell><StartupManager /></AppShell>} />
-            <Route path="/uninstaller"   element={<AppShell><UninstallerPage /></AppShell>} />
-            <Route path="/games"         element={<AppShell><GamesPage /></AppShell>} />
-            <Route path="/settings"      element={<AppShell><SettingsPage /></AppShell>} />
-            <Route path="*"              element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard"       element={wrap(<Dashboard />)} />
+            <Route path="/analyzer"        element={wrap(<DeepAnalyzerPage />)} />
+            <Route path="/system"          element={wrap(<SystemMonitorPage />)} />
+            <Route path="/explorer"        element={wrap(<FileExplorerPage />)} />
+            <Route path="/optimizer"       element={wrap(<SmartOptimizerPage />)} />
+            <Route path="/media"           element={wrap(<MediaOrganizerPage />)} />
+            <Route path="/downloads"       element={wrap(<DownloadsPage />)} />
+            <Route path="/junk"            element={wrap(<JunkCleaner />)} />
+            <Route path="/duplicates"      element={wrap(<DuplicatesPage />)} />
+            <Route path="/files"           element={wrap(<FilesPage />)} />
+            <Route path="/transfer"        element={wrap(<QuickTransferPage />)} />
+            <Route path="/storage"         element={wrap(<StorageAnalyzer />)} />
+            <Route path="/drives/optimize" element={wrap(<DriveOptimizer />)} />
+            <Route path="/startup"         element={wrap(<StartupManager />)} />
+            <Route path="/uninstaller"     element={wrap(<UninstallerPage />)} />
+            <Route path="/games"           element={wrap(<GamesPage />)} />
+            <Route path="/settings"        element={wrap(<SettingsPage />)} />
+            <Route path="*"                element={<Navigate to="/dashboard" replace />} />
           </>
         )}
       </Routes>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <ToastProvider>
+        <AppInner />
+      </ToastProvider>
     </BrowserRouter>
   );
 }
