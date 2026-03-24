@@ -126,10 +126,9 @@ _SYNONYM_GROUPS: list[frozenset[str]] = [
 
 
 def _synonym_key(name: str) -> Optional[str]:
-    n = name.lower().strip().rstrip("s")  # simple plural collapse
     n_full = name.lower().strip()
     for group in _SYNONYM_GROUPS:
-        if n in group or n_full in group:
+        if n_full in group:
             return "|".join(sorted(group))
     return None
 

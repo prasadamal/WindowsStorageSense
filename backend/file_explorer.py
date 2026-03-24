@@ -220,13 +220,15 @@ def delete_items(paths: list) -> dict:
 # ---------------------------------------------------------------------------
 
 def open_file(path: str) -> dict:
-    """Open a file with its default application (os.startfile on Windows; xdg-open fallback on Linux/macOS)."""
+    """Open a file with its default application (os.startfile on Windows; platform-specific fallback on macOS/Linux)."""
     try:
-        os.startfile(path)  # Windows-only – preferred method
+        os.startfile(path)  # Windows only
         return {"opened": True}
     except AttributeError:
-        # Fallback for non-Windows (testing)
-        subprocess.Popen(["xdg-open", path])
+        # Non-Windows fallback
+        import platform as _platform
+        cmd = "open" if _platform.system() == "Darwin" else "xdg-open"
+        subprocess.Popen([cmd, path])
         return {"opened": True}
     except Exception as exc:
         return {"opened": False, "error": str(exc)}

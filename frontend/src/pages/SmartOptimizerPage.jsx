@@ -277,7 +277,7 @@ function SimilarFoldersTab({ scanPaths }) {
                   </div>
                 )}
 
-                {preview && merging && merging.src === grp.folders[0]?.path && (
+                {preview && merging && grp.folders.some((f) => f.path === merging.src || f.path === merging.dst) && (
                   <div className="mt-2 bg-slate-900/50 rounded-lg p-3 space-y-2">
                     <p className="text-xs font-medium text-slate-300">
                       {preview.moved} file(s) will be moved
@@ -393,7 +393,7 @@ function SSDAdvisorTab() {
         </p>
         <button onClick={scan} disabled={loading} className="btn-primary flex items-center gap-2 text-sm">
           {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-          Analyse Drives
+          Analyze Drives
         </button>
       </div>
 
@@ -459,7 +459,7 @@ function SSDAdvisorTab() {
       )}
 
       {!data && !loading && (
-        <EmptyState icon={<Layers className="w-10 h-10" />} message="Analyse your drives to get placement recommendations" />
+        <EmptyState icon={<Layers className="w-10 h-10" />} message="Analyze your drives to get placement recommendations" />
       )}
     </div>
   );

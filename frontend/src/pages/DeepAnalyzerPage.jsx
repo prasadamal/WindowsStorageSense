@@ -253,7 +253,7 @@ export default function DeepAnalyzerPage() {
             className="ml-auto btn-primary flex items-center gap-2 text-sm"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-            {loading ? 'Analysing…' : 'Run Analysis'}
+            {loading ? 'Analyzing…' : 'Run Analysis'}
           </button>
         </div>
         {totalScanned && <p className="text-xs text-slate-500 mt-2">{totalScanned}</p>}
