@@ -232,7 +232,7 @@ export default function FileExplorerPage() {
     }
   };
 
-  const clearSearch = () => { setSearchQuery(''); setSearchResults(null); };
+  const clearSearch = useCallback(() => { setSearchQuery(''); setSearchResults(null); }, []);
 
   // -------------------------------------------------------------------------
   // Context menu builder
@@ -277,7 +277,7 @@ export default function FileExplorerPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selected, entries, clipboard, currentPath]);
+  }, [selected, entries, clipboard, currentPath, renaming, clearSearch]);
 
   // -------------------------------------------------------------------------
   // Displayed entries (search results or normal listing)

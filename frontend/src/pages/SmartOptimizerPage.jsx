@@ -592,7 +592,7 @@ export default function SmartOptimizerPage() {
     if (drives.length && !scanPaths.length) {
       setScanPaths(drives.map((d) => d.path || d.mount_point || '').filter(Boolean));
     }
-  }, [drives]);
+  }, [drives, scanPaths]);
 
   return (
     <div className="p-6 space-y-5 max-w-5xl">

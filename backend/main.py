@@ -12,7 +12,7 @@ import asyncio
 import sys
 import time
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, Any
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,13 +57,13 @@ class _Cache:
     def __init__(self):
         self._store: dict[str, tuple[float, object]] = {}
 
-    def get(self, key: str, ttl: float) -> Optional[object]:
+    def get(self, key: str, ttl: float) -> Optional[Any]:
         entry = self._store.get(key)
         if entry and (time.monotonic() - entry[0]) < ttl:
             return entry[1]
         return None
 
-    def set(self, key: str, value: object) -> None:
+    def set(self, key: str, value: Any) -> None:
         self._store[key] = (time.monotonic(), value)
 
     def invalidate(self, key: str) -> None:

@@ -334,15 +334,22 @@ def _detect_drive_type(mountpoint: str) -> str:
         drive_letter = pathlib.Path(mountpoint).drive  # e.g. 'C:'
         if not drive_letter:
             return "Unknown"
-        # Query WMI via PowerShell — no wmi module dependency
+        # Validate: drive letter must be a single ASCII letter A-Z.
+        letter_char = drive_letter[0].upper()
+        if not letter_char.isalpha() or len(letter_char) != 1:
+            return "Unknown"
+        # Pass the drive letter as a separate PowerShell variable to
+        # avoid any f-string injection into the command string.
         ps = (
-            f"$disk = Get-Partition -DriveLetter '{drive_letter[0]}' "
+            "$letter = $env:_DRIVE_LETTER; "
+            "$disk = Get-Partition -DriveLetter $letter "
             "-ErrorAction SilentlyContinue | Get-Disk -ErrorAction SilentlyContinue; "
             "if ($disk) { $disk.MediaType } else { 'Unknown' }"
         )
         result = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
             capture_output=True, text=True, timeout=5,
+            env={**__import__("os").environ, "_DRIVE_LETTER": letter_char},
         )
         output = result.stdout.strip()
         if "SSD" in output:

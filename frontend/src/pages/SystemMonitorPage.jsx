@@ -325,7 +325,7 @@ export default function SystemMonitorPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Total RAM', value: formatBytes(ram.total), color: 'text-white' },
-            { label: 'Used RAM', value: formatBytes(ram.used), color: pctColor(ram.percent) > '#e' ? 'text-red-400' : 'text-yellow-400' },
+            { label: 'Used RAM', value: formatBytes(ram.used), color: ram.percent > 90 ? 'text-red-400' : ram.percent > 70 ? 'text-yellow-400' : 'text-green-400' },
             { label: 'Available', value: formatBytes(ram.available), color: 'text-green-400' },
             { label: 'Swap Used', value: formatBytes(ram.swap_used) + ' / ' + formatBytes(ram.swap_total), color: 'text-slate-400' },
           ].map((s) => (

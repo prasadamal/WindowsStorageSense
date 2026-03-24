@@ -185,6 +185,8 @@ function AppInner() {
     setChecking(false);
     fetchDrives();
     fetchSettings();
+    // Zustand actions are stable references — deps array is intentionally empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Global Ctrl+K / Cmd+K shortcut for command palette
