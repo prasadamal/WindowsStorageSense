@@ -35,6 +35,9 @@ from drive_optimizer import get_drive_optimization
 from download_manager import list_downloads, organize_downloads, delete_stale_downloads
 from scheduler import start_scheduler, stop_scheduler, register_windows_task
 from safety import is_blocked_path
+import file_explorer as fe
+import media_organizer as mo
+import quick_transfer as qt
 
 import send2trash
 
@@ -101,6 +104,62 @@ class SettingRequest(BaseModel):
 
 class DeleteFilesRequest(BaseModel):
     paths: list[str]
+
+
+# --- File Explorer ---
+
+class CreateFolderRequest(BaseModel):
+    parent_path: str
+    name: str
+
+
+class RenameRequest(BaseModel):
+    path: str
+    new_name: str
+
+
+class MoveRequest(BaseModel):
+    paths: list[str]
+    destination: str
+
+
+class CopyRequest(BaseModel):
+    paths: list[str]
+    destination: str
+
+
+class DeleteItemsRequest(BaseModel):
+    paths: list[str]
+
+
+class OpenFileRequest(BaseModel):
+    path: str
+
+
+class SearchRequest(BaseModel):
+    root_path: str
+    query: str
+    limit: int = 200
+
+
+# --- Media Organizer ---
+
+class MediaPreviewRequest(BaseModel):
+    scan_paths: list[str]
+    categories: list[str] | None = None
+
+
+class MediaOrganizeRequest(BaseModel):
+    scan_paths: list[str]
+    categories: list[str] | None = None
+    dry_run: bool = False
+
+
+# --- Quick Transfer ---
+
+class ShareStartRequest(BaseModel):
+    file_paths: list[str]
+    port: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -446,6 +505,116 @@ async def api_set_setting(req: SettingRequest):
 @app.post("/scheduler/register-task")
 async def api_register_task(interval_days: int = 7):
     return register_windows_task(interval_days=interval_days)
+
+
+# ---------------------------------------------------------------------------
+# File Explorer
+# ---------------------------------------------------------------------------
+
+@app.get("/explorer/list")
+async def api_explorer_list(path: str, show_hidden: bool = False):
+    try:
+        return fe.list_directory(path, show_hidden=show_hidden)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except NotADirectoryError as e:
+        raise HTTPException(400, str(e))
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+
+
+@app.get("/explorer/quick-access")
+async def api_quick_access():
+    return {"locations": fe.get_quick_access()}
+
+
+@app.post("/explorer/folder")
+async def api_create_folder(req: CreateFolderRequest):
+    try:
+        return fe.create_folder(req.parent_path, req.name)
+    except (PermissionError, FileExistsError) as e:
+        raise HTTPException(403, str(e))
+
+
+@app.post("/explorer/rename")
+async def api_rename(req: RenameRequest):
+    try:
+        return fe.rename_item(req.path, req.new_name)
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.post("/explorer/move")
+async def api_move(req: MoveRequest):
+    return fe.move_items(req.paths, req.destination)
+
+
+@app.post("/explorer/copy")
+async def api_copy(req: CopyRequest):
+    return fe.copy_items(req.paths, req.destination)
+
+
+@app.post("/explorer/delete")
+async def api_explorer_delete(req: DeleteItemsRequest):
+    return fe.delete_items(req.paths)
+
+
+@app.post("/explorer/open")
+async def api_open_file(req: OpenFileRequest):
+    return fe.open_file(req.path)
+
+
+@app.post("/explorer/open-in-explorer")
+async def api_open_in_explorer(req: OpenFileRequest):
+    return fe.open_in_explorer(req.path)
+
+
+@app.get("/explorer/search")
+async def api_explorer_search(root_path: str, query: str, limit: int = 200):
+    return {"results": fe.search_files(root_path, query, limit)}
+
+
+# ---------------------------------------------------------------------------
+# Media Organizer
+# ---------------------------------------------------------------------------
+
+@app.post("/media/preview")
+async def api_media_preview(req: MediaPreviewRequest):
+    return mo.preview_organization(req.scan_paths, req.categories)
+
+
+@app.post("/media/organize")
+async def api_media_organize(req: MediaOrganizeRequest):
+    return mo.organize_media(req.scan_paths, req.categories, dry_run=req.dry_run)
+
+
+@app.get("/media/library-stats")
+async def api_library_stats():
+    return mo.get_library_stats()
+
+
+# ---------------------------------------------------------------------------
+# Quick Transfer
+# ---------------------------------------------------------------------------
+
+@app.post("/transfer/start")
+async def api_transfer_start(req: ShareStartRequest):
+    result = qt.start_share(req.file_paths, port=req.port)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@app.post("/transfer/stop")
+async def api_transfer_stop():
+    return qt.stop_share()
+
+
+@app.get("/transfer/status")
+async def api_transfer_status():
+    return qt.get_share_status()
 
 
 # ---------------------------------------------------------------------------

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import {
   LayoutDashboard, HardDrive, Files, Copy, Trash2, Gamepad2,
-  Download, Film, FolderOpen, Settings, Rocket, ChevronRight,
-  Moon, Sun, RefreshCw, Shield
+  Download, FolderOpen, Settings, Rocket, RefreshCw, Shield,
+  FolderSearch, Music, Share2,
 } from 'lucide-react';
 
 import useStore from './store';
@@ -21,19 +21,25 @@ import DownloadsPage from './pages/DownloadsPage';
 import SettingsPage from './pages/SettingsPage';
 import OnboardingPage from './pages/OnboardingPage';
 import DriveOptimizer from './pages/DriveOptimizer';
+import FileExplorerPage from './pages/FileExplorerPage';
+import MediaOrganizerPage from './pages/MediaOrganizerPage';
+import QuickTransferPage from './pages/QuickTransferPage';
 
 const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/storage', icon: HardDrive, label: 'Storage' },
-  { to: '/files', icon: Files, label: 'Files' },
-  { to: '/duplicates', icon: Copy, label: 'Duplicates' },
-  { to: '/junk', icon: Trash2, label: 'Junk Cleaner' },
-  { to: '/uninstaller', icon: FolderOpen, label: 'Uninstaller' },
-  { to: '/startup', icon: Rocket, label: 'Startup' },
-  { to: '/games', icon: Gamepad2, label: 'Games' },
-  { to: '/downloads', icon: Download, label: 'Downloads' },
-  { to: '/drives/optimize', icon: Shield, label: 'Drive Advisor' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/explorer',   icon: FolderSearch,    label: 'File Explorer' },
+  { to: '/media',      icon: Music,           label: 'Media Organizer' },
+  { to: '/transfer',   icon: Share2,          label: 'Quick Transfer' },
+  { to: '/storage',    icon: HardDrive,       label: 'Storage' },
+  { to: '/files',      icon: Files,           label: 'Files' },
+  { to: '/duplicates', icon: Copy,            label: 'Duplicates' },
+  { to: '/junk',       icon: Trash2,          label: 'Junk Cleaner' },
+  { to: '/uninstaller',icon: FolderOpen,      label: 'Uninstaller' },
+  { to: '/startup',    icon: Rocket,          label: 'Startup' },
+  { to: '/games',      icon: Gamepad2,        label: 'Games' },
+  { to: '/downloads',  icon: Download,        label: 'Downloads' },
+  { to: '/drives/optimize', icon: Shield,     label: 'Drive Advisor' },
+  { to: '/settings',   icon: Settings,        label: 'Settings' },
 ];
 
 function Sidebar() {
@@ -125,6 +131,18 @@ export default function App() {
             <Route
               path="/dashboard"
               element={<AppShell><Dashboard /></AppShell>}
+            />
+            <Route
+              path="/explorer"
+              element={<AppShell><FileExplorerPage /></AppShell>}
+            />
+            <Route
+              path="/media"
+              element={<AppShell><MediaOrganizerPage /></AppShell>}
+            />
+            <Route
+              path="/transfer"
+              element={<AppShell><QuickTransferPage /></AppShell>}
             />
             <Route
               path="/storage"
