@@ -38,6 +38,9 @@ from safety import is_blocked_path
 import file_explorer as fe
 import media_organizer as mo
 import quick_transfer as qt
+import smart_optimizer as so
+import deep_analyzer as da
+import internet_transfer as it_
 
 import send2trash
 
@@ -160,6 +163,34 @@ class MediaOrganizeRequest(BaseModel):
 class ShareStartRequest(BaseModel):
     file_paths: list[str]
     port: int = 0
+
+
+# --- Smart Optimizer ---
+
+class DeleteEmptyFoldersRequest(BaseModel):
+    paths: list[str]
+
+
+class ScanPathsRequest(BaseModel):
+    root_paths: list[str]
+
+
+class MergeFoldersRequest(BaseModel):
+    source: str
+    destination: str
+    dry_run: bool = True
+
+
+class MoveFilesRequest(BaseModel):
+    paths: list[str]
+    destination: str
+
+
+# --- Internet Transfer ---
+
+class InternetUploadRequest(BaseModel):
+    file_path: str
+    expires: str = "14d"
 
 
 # ---------------------------------------------------------------------------
@@ -615,6 +646,101 @@ async def api_transfer_stop():
 @app.get("/transfer/status")
 async def api_transfer_status():
     return qt.get_share_status()
+
+
+# ---------------------------------------------------------------------------
+# Smart Optimizer
+# ---------------------------------------------------------------------------
+
+@app.post("/optimizer/empty-folders/scan")
+async def api_scan_empty(req: ScanPathsRequest):
+    return {"folders": so.scan_empty_folders(req.root_paths)}
+
+
+@app.post("/optimizer/empty-folders/delete")
+async def api_delete_empty(req: DeleteEmptyFoldersRequest):
+    return so.delete_empty_folders(req.paths)
+
+
+@app.post("/optimizer/similar-folders/scan")
+async def api_similar_folders(req: ScanPathsRequest):
+    return {"groups": so.find_similar_folders(req.root_paths)}
+
+
+@app.post("/optimizer/merge-folders")
+async def api_merge_folders(req: MergeFoldersRequest):
+    return so.merge_folders(req.source, req.destination, dry_run=req.dry_run)
+
+
+@app.get("/optimizer/c-drive-hogs")
+async def api_c_drive_hogs(min_size_mb: int = 100, top_n: int = 25):
+    return {"hogs": so.get_c_drive_hogs(min_size_mb=min_size_mb, top_n=top_n)}
+
+
+@app.get("/optimizer/drive-placement")
+async def api_drive_placement():
+    return so.get_drive_placement_advice()
+
+
+@app.post("/optimizer/scattered-files/scan")
+async def api_scattered_files(req: ScanPathsRequest):
+    return {"files": so.find_scattered_files(req.root_paths)}
+
+
+@app.post("/optimizer/scattered-files/consolidate")
+async def api_consolidate_scattered(req: MoveFilesRequest):
+    return fe.move_items(req.paths, req.destination)
+
+
+# ---------------------------------------------------------------------------
+# Deep Analyzer
+# ---------------------------------------------------------------------------
+
+@app.post("/analyzer/run")
+async def api_analyzer_run(req: ScanPathsRequest, top_files: int = 50):
+    return da.analyze(req.root_paths, top_files=top_files)
+
+
+@app.post("/analyzer/largest-files")
+async def api_largest_files(req: ScanPathsRequest, limit: int = 100):
+    return {"files": da.get_largest_files(req.root_paths, limit=limit)}
+
+
+@app.post("/analyzer/extension-stats")
+async def api_extension_stats(req: ScanPathsRequest):
+    return {"stats": da.get_extension_stats(req.root_paths)}
+
+
+@app.post("/analyzer/age-distribution")
+async def api_age_distribution(req: ScanPathsRequest):
+    return {"buckets": da.get_age_distribution(req.root_paths)}
+
+
+@app.post("/analyzer/orphaned-files")
+async def api_orphaned_files(req: ScanPathsRequest, limit: int = 200):
+    return {"files": da.find_orphaned_files(req.root_paths, limit=limit)}
+
+
+@app.get("/analyzer/folder-tree")
+async def api_folder_tree(root_path: str, depth: int = 3):
+    return da.get_folder_tree(root_path, depth=depth)
+
+
+# ---------------------------------------------------------------------------
+# Internet & Bluetooth Transfer
+# ---------------------------------------------------------------------------
+
+@app.post("/transfer/internet-upload")
+async def api_internet_upload(req: InternetUploadRequest):
+    result = await it_.upload_file(req.file_path, expires=req.expires)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@app.post("/transfer/bluetooth")
+async def api_bluetooth_send():
+    return it_.launch_bluetooth_send()
 
 
 # ---------------------------------------------------------------------------
