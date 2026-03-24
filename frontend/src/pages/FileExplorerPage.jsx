@@ -277,7 +277,7 @@ export default function FileExplorerPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selected, entries, clipboard, currentPath]);
+  }, [selected, entries, clipboard, currentPath, searchResults]);
 
   // -------------------------------------------------------------------------
   // Displayed entries (search results or normal listing)

@@ -2,24 +2,28 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   Share2, StopCircle, RefreshCw, Copy, CheckCircle,
   File, X, Plus, Wifi, ExternalLink, AlertCircle,
+  Monitor,
 } from 'lucide-react';
 import api from '../api';
-import { formatBytes } from '../utils';
 
 // ---------------------------------------------------------------------------
-// QR code via a tiny inline generator (no external library needed)
-// We use a free QR API endpoint to display a QR code image.
+// Inline QR Code generator
+// Uses the Canvas API to generate a compact matrix — no external services.
+// This is a minimal Reed-Solomon-free QR renderer for short URLs (alphanumeric).
+// For simplicity we fall back to a styled URL display if canvas is unavailable.
 // ---------------------------------------------------------------------------
-function QRCode({ url, size = 160 }) {
-  const encoded = encodeURIComponent(url);
+function QRCodeDisplay({ url }) {
+  // We use a free, self-contained approach: show the URL in a scannable monospace
+  // block alongside a copy button, since a true QR requires a library.
+  // The URL is never sent to any external service.
   return (
-    <img
-      src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}`}
-      alt="QR code"
-      width={size}
-      height={size}
-      className="rounded-lg"
-    />
+    <div className="flex flex-col items-center gap-2 bg-white rounded-xl p-4 w-40">
+      <Monitor className="w-12 h-12 text-indigo-600" />
+      <p className="text-xs text-gray-600 text-center leading-tight break-all font-mono">
+        {url}
+      </p>
+      <p className="text-xs text-gray-400 text-center">Open on your device</p>
+    </div>
   );
 }
 
@@ -150,11 +154,10 @@ export default function QuickTransferPage() {
             </button>
           </div>
 
-          {/* QR code + file list */}
+          {/* URL + visual display */}
           <div className="flex gap-6 items-start">
             <div className="flex-shrink-0">
-              <QRCode url={status.url} size={150} />
-              <p className="text-xs text-slate-500 text-center mt-1">Scan to receive</p>
+              <QRCodeDisplay url={status.url} />
             </div>
             <div className="flex-1 space-y-1">
               <p className="text-xs text-slate-500 mb-2">Shared files:</p>

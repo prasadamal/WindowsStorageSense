@@ -91,7 +91,7 @@ def _scan_for_media(
                 dirs.clear()
                 continue
             for filename in files:
-                ext = pathlib.Path(filename).suffix.lower()
+                ext = os.path.splitext(filename)[1].lower()
                 cat = _EXT_TO_CATEGORY.get(ext)
                 if cat and cat in cats:
                     found[cat].append(pathlib.Path(root) / filename)

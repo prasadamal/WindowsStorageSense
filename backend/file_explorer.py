@@ -220,7 +220,7 @@ def delete_items(paths: list) -> dict:
 # ---------------------------------------------------------------------------
 
 def open_file(path: str) -> dict:
-    """Open a file with its default application (Windows shell)."""
+    """Open a file with its default application (os.startfile on Windows; xdg-open fallback on Linux/macOS)."""
     try:
         os.startfile(path)  # Windows-only – preferred method
         return {"opened": True}
