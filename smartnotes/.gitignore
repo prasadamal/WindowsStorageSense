@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+*.db
+*.sqlite3
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# Node / React Native
+node_modules/
+.expo/
+.expo-shared/
+*.orig.*
+web-build/
+dist/
+
+# Android
+android/
+*.apk
+*.aab
+
+# iOS
+ios/
+*.ipa
+*.dSYM.zip
+
+# Misc
+.DS_Store
+*.log
+.idea/
+.vscode/

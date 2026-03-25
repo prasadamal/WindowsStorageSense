@@ -1,0 +1,28 @@
+# Core framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+gunicorn==23.0.0
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+aiosqlite==0.20.0            # SQLite async driver (dev/test)
+asyncpg==0.30.0              # PostgreSQL async driver (production)
+alembic==1.14.0
+
+# Settings & validation
+pydantic==2.10.4
+pydantic-settings==2.7.0
+pydantic[email]==2.10.4
+
+# Authentication
+python-jose[cryptography]==3.4.0
+passlib[bcrypt]==1.7.4
+
+# HTTP client (metadata extraction)
+httpx==0.28.1
+
+# Optional: OpenAI-powered tag extraction
+openai==1.58.1
+
+# ASGI
+python-multipart==0.0.22
