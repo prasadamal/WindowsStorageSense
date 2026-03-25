@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     End-to-end Windows build script for WindowsStorageSense.
     Produces a single NSIS installer: dist/WindowsStorageSense-Setup.exe
