@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WindowsStorageSense</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #080f1e;
+    color: #e2e8f0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    overflow: hidden;
+    -webkit-app-region: drag;
+  }
+
+  /* ── Logo ── */
+  .logo {
+    width: 72px;
+    height: 72px;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    box-shadow: 0 0 40px rgba(37, 99, 235, 0.4);
+    animation: pulse-logo 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-logo {
+    0%, 100% { box-shadow: 0 0 40px rgba(37, 99, 235, 0.4); }
+    50%       { box-shadow: 0 0 60px rgba(37, 99, 235, 0.6); }
+  }
+
+  .logo svg {
+    width: 36px;
+    height: 36px;
+    color: #fff;
+  }
+
+  /* ── App name ── */
+  .app-name {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+
+  .tagline {
+    font-size: 12px;
+    color: #64748b;
+    letter-spacing: 0.5px;
+    margin-bottom: 36px;
+  }
+
+  /* ── Progress bar ── */
+  .progress-track {
+    width: 220px;
+    height: 3px;
+    background: #1e293b;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #2563eb, #3b82f6);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  /* ── Status text ── */
+  .status {
+    font-size: 12px;
+    color: #475569;
+    min-height: 18px;
+    text-align: center;
+    transition: opacity 0.3s;
+  }
+
+  /* ── Version badge ── */
+  .version {
+    position: fixed;
+    bottom: 16px;
+    right: 20px;
+    font-size: 11px;
+    color: #334155;
+  }
+
+  /* ── Dots animation ── */
+  .dots::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+
+  @keyframes dots {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+    100% { content: ''; }
+  }
+</style>
+</head>
+<body>
+
+<div class="logo">
+  <!-- HardDrive icon inline SVG -->
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+       stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="22" x2="2" y1="12" y2="12"/>
+    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+    <line x1="6" x2="6.01" y1="16" y2="16"/>
+    <line x1="10" x2="10.01" y1="16" y2="16"/>
+  </svg>
+</div>
+
+<div class="app-name">StorageSense</div>
+<div class="tagline">WINDOWS STORAGE INTELLIGENCE</div>
+
+<div class="progress-track">
+  <div class="progress-fill" id="fill"></div>
+</div>
+<div class="status" id="status"><span class="dots">Starting</span></div>
+
+<div class="version" id="version">v3.0</div>
+
+<script>
+  const fill   = document.getElementById('fill');
+  const status = document.getElementById('status');
+
+  // Listen for progress updates from the main process
+  window.addEventListener('message', (e) => {
+    const { pct, msg } = e.data || {};
+    if (pct !== undefined) fill.style.width = pct + '%';
+    if (msg)              status.textContent = msg;
+  });
+
+  // Animate to 30% while waiting
+  let auto = 5;
+  const tick = setInterval(() => {
+    if (auto < 30) {
+      auto += 1;
+      fill.style.width = auto + '%';
+    } else {
+      clearInterval(tick);
+    }
+  }, 200);
+</script>
+</body>
+</html>
