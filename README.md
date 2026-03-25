@@ -68,7 +68,11 @@ On launch Electron starts `resources/backend/main.exe`, waits for it to respond 
 ### One-command build
 
 ```powershell
-# From the repository root on Windows:
+# Clone the repo, then cd into it before running the script:
+git clone https://github.com/prasadamal/WindowsStorageSense.git
+cd WindowsStorageSense
+
+# Build from the repository root:
 .\scripts\build-win.ps1
 ```
 
