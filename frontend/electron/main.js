@@ -180,6 +180,8 @@ function waitForBackend(retries = 40, interval = 750) {
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
+    // Default window dimensions: 1366×820 matches common laptop screens (1366×768+).
+    // minWidth/minHeight: smallest usable size where all sidebar items remain visible.
     width:     1366,
     height:    820,
     minWidth:  1024,

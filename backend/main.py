@@ -9,9 +9,12 @@ Run:  uvicorn main:app --host 127.0.0.1 --port 8765
 
 import argparse
 import asyncio
+import logging
+import os
 import sys
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional, Any
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
@@ -890,6 +893,27 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
+
+    # ── File-based logging for packaged (PyInstaller) builds ─────────────────
+    # When PyInstaller compiles with console=False, stdout/stderr are suppressed.
+    # We redirect all logging to a file so startup errors can be diagnosed.
+    log_dir = Path(
+        os.getenv("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+    ) / "WindowsStorageSense"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "backend.log"
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler(log_file, encoding="utf-8"),
+            # Only add StreamHandler if stdout is actually available
+            *([] if getattr(sys, "frozen", False) else [logging.StreamHandler(sys.stdout)]),
+        ],
+    )
+    logger = logging.getLogger("storageSense")
+    logger.info("Backend starting — log: %s", log_file)
 
     if args.background_scan:
         # Called by Task Scheduler

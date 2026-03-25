@@ -91,6 +91,5 @@
       "provider": "github",
       "releaseType": "release"
     }
-  },
-  "type": "module"
+  }
 }

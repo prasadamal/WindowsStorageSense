@@ -15,6 +15,9 @@ permissions:
   contents: write         # Needed to create GitHub Releases
 
 env:
+  # Python 3.11 is used because it's the latest LTS-equivalent with full
+  # psutil + PyInstaller support on Windows. Python 3.12 works too but
+  # PyInstaller bootstrap is marginally slower on 3.12 as of early 2025.
   PYTHON_VERSION: '3.11'
   NODE_VERSION: '20'
 

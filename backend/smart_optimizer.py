@@ -334,9 +334,9 @@ def _detect_drive_type(mountpoint: str) -> str:
         drive_letter = pathlib.Path(mountpoint).drive  # e.g. 'C:'
         if not drive_letter:
             return "Unknown"
-        # Validate: drive letter must be a single ASCII letter A-Z.
+        # Validate: must be a single ASCII letter strictly in A–Z range to prevent injection.
         letter_char = drive_letter[0].upper()
-        if not letter_char.isalpha() or len(letter_char) != 1:
+        if not ('A' <= letter_char <= 'Z'):
             return "Unknown"
         # Pass the drive letter as a separate PowerShell variable to
         # avoid any f-string injection into the command string.

@@ -59,16 +59,16 @@ def _draw_logo(size: int, bg: tuple, fg: tuple, accent: tuple) -> Image.Image:
 
 
 # Colour palette (dark navy background, white icon, blue accent)
-BG    = (15,  23, 42,  255)   # slate-900
-FG    = (30,  41, 59,  255)   # slate-800
-ACCENT = (59, 130, 246, 255)  # brand-500 blue
+BACKGROUND_COLOR = (15,  23, 42,  255)   # slate-900
+FOREGROUND_COLOR = (30,  41, 59,  255)   # slate-800
+ACCENT_COLOR     = (59, 130, 246, 255)   # brand-500 blue
 
 
 # -------------------------------------------------------------------------
 # icon.ico — multi-size ICO for the app window and taskbar
 # -------------------------------------------------------------------------
 ico_sizes = [16, 32, 48, 64, 128, 256]
-ico_images = [_draw_logo(s, BG, FG, ACCENT) for s in ico_sizes]
+ico_images = [_draw_logo(s, BACKGROUND_COLOR, FOREGROUND_COLOR, ACCENT_COLOR) for s in ico_sizes]
 ico_path = OUTPUT_DIR / "icon.ico"
 # Save as ICO with all sizes embedded
 ico_images[0].save(
@@ -83,14 +83,14 @@ print(f"✓ Written {ico_path}")
 # icon.png — 256×256 PNG (used by electron-builder for macOS/Linux)
 # -------------------------------------------------------------------------
 png_path = OUTPUT_DIR / "icon.png"
-_draw_logo(256, BG, FG, ACCENT).save(png_path, format="PNG")
+_draw_logo(256, BACKGROUND_COLOR, FOREGROUND_COLOR, ACCENT_COLOR).save(png_path, format="PNG")
 print(f"✓ Written {png_path}")
 
 # -------------------------------------------------------------------------
 # tray-icon.png — 32×32 PNG for the system-tray
 # -------------------------------------------------------------------------
 tray_path = OUTPUT_DIR / "tray-icon.png"
-_draw_logo(32, BG, FG, ACCENT).save(tray_path, format="PNG")
+_draw_logo(32, BACKGROUND_COLOR, FOREGROUND_COLOR, ACCENT_COLOR).save(tray_path, format="PNG")
 print(f"✓ Written {tray_path}")
 
 print("\nAll icons generated successfully.")

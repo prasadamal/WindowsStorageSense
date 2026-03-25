@@ -37,6 +37,9 @@ die()  { echo "✗ ERROR: $1"; exit 1; }
 # ── Icons ────────────────────────────────────────────────────────────────────
 if [ "$SKIP_ICONS" = false ]; then
   step "Generating icons"
+  # Note: installs Pillow into the current Python environment.
+  # In CI, this runs inside a fresh virtual env or container, so no conflicts.
+  # For local development, use `pip install Pillow` inside your own venv first.
   pip install Pillow --quiet
   python3 "$SCRIPTS/generate-icon.py"
   ok "Icons generated"

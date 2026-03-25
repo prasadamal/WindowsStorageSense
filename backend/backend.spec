@@ -116,7 +116,11 @@ exe = EXE(
     strip=False,
     upx=True,
     upx_exclude=[],
-    console=False,          # No console window in production
+    # console=False hides the terminal window in production.
+    # Backend errors are written to a log file instead — see main.py which
+    # configures Python's logging module to write to %LOCALAPPDATA%\WindowsStorageSense\backend.log
+    # Run with console=True temporarily to debug startup issues.
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
