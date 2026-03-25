@@ -130,6 +130,47 @@ cd frontend && npm run dev
 
 ---
 
+## Troubleshooting
+
+### `build-win.ps1` is "not recognized as a cmdlet, function, script file, or operable program"
+
+This error means PowerShell could not load the script. Two common causes:
+
+**1. Wrong working directory**
+
+You must run the script from the **repository root**, not from inside a sub-folder and not from a drive root:
+
+```powershell
+# Clone the repo, then cd into it:
+git clone https://github.com/prasadamal/WindowsStorageSense.git
+cd WindowsStorageSense
+
+# Now run the build script:
+.\scripts\build-win.ps1
+```
+
+**2. PowerShell execution policy blocks scripts**
+
+Fresh Windows installations default to the `Restricted` execution policy, which prevents running any `.ps1` file.  Run this once in an **elevated** (Administrator) PowerShell window to allow local scripts:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+`RemoteSigned` lets you run local scripts (like this one) while still requiring downloaded scripts to be signed.  Re-run `.\scripts\build-win.ps1` after setting the policy.
+
+**3. PowerShell version too old**
+
+The build script requires **PowerShell 5.1 or later** (shipped with Windows 10/11).  Check your version with:
+
+```powershell
+$PSVersionTable.PSVersion
+```
+
+If you are on Windows 7/8 you may need to install [WMF 5.1](https://www.microsoft.com/en-us/download/details.aspx?id=54616).
+
+---
+
 ## Security
 
 - All data is stored locally in SQLite at `%LOCALAPPDATA%\WindowsStorageSense\`

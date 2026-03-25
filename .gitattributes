@@ -1,0 +1,20 @@
+# Normalize line endings for cross-platform development.
+# Text files get LF in the repo; Git converts to CRLF on Windows checkout.
+* text=auto eol=lf
+
+# PowerShell scripts must use CRLF on Windows and must preserve the UTF-8 BOM
+# so that PowerShell 5.1 (the Windows default) correctly identifies the encoding.
+# Marking as binary prevents any line-ending or BOM normalization by Git.
+*.ps1  binary
+
+# Shell scripts: always LF
+*.sh   text eol=lf
+
+# Python source files: LF in repo, CRLF on Windows checkout is fine either way
+*.py   text eol=lf
+
+# JSON / config files: LF
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
