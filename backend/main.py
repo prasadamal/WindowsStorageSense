@@ -9,11 +9,15 @@ Run:  uvicorn main:app --host 127.0.0.1 --port 8765
 
 import argparse
 import asyncio
+import logging
+import os
 import sys
+import time
 from contextlib import asynccontextmanager
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Any
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -35,8 +39,44 @@ from drive_optimizer import get_drive_optimization
 from download_manager import list_downloads, organize_downloads, delete_stale_downloads
 from scheduler import start_scheduler, stop_scheduler, register_windows_task
 from safety import is_blocked_path
+import file_explorer as fe
+import media_organizer as mo
+import quick_transfer as qt
+import smart_optimizer as so
+import deep_analyzer as da
+import internet_transfer as it_
+import system_monitor as sm
+import report_exporter as re_
 
 import send2trash
+
+
+# ---------------------------------------------------------------------------
+# Simple in-memory response cache
+# ---------------------------------------------------------------------------
+
+class _Cache:
+    """Lightweight TTL cache for expensive read-only endpoints."""
+    def __init__(self):
+        self._store: dict[str, tuple[float, object]] = {}
+
+    def get(self, key: str, ttl: float) -> Optional[Any]:
+        entry = self._store.get(key)
+        if entry and (time.monotonic() - entry[0]) < ttl:
+            return entry[1]
+        return None
+
+    def set(self, key: str, value: Any) -> None:
+        self._store[key] = (time.monotonic(), value)
+
+    def invalidate(self, key: str) -> None:
+        self._store.pop(key, None)
+
+    def invalidate_all(self) -> None:
+        self._store.clear()
+
+
+_cache = _Cache()
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +143,90 @@ class DeleteFilesRequest(BaseModel):
     paths: list[str]
 
 
+# --- File Explorer ---
+
+class CreateFolderRequest(BaseModel):
+    parent_path: str
+    name: str
+
+
+class RenameRequest(BaseModel):
+    path: str
+    new_name: str
+
+
+class MoveRequest(BaseModel):
+    paths: list[str]
+    destination: str
+
+
+class CopyRequest(BaseModel):
+    paths: list[str]
+    destination: str
+
+
+class DeleteItemsRequest(BaseModel):
+    paths: list[str]
+
+
+class OpenFileRequest(BaseModel):
+    path: str
+
+
+class SearchRequest(BaseModel):
+    root_path: str
+    query: str
+    limit: int = 200
+
+
+# --- Media Organizer ---
+
+class MediaPreviewRequest(BaseModel):
+    scan_paths: list[str]
+    categories: list[str] | None = None
+
+
+class MediaOrganizeRequest(BaseModel):
+    scan_paths: list[str]
+    categories: list[str] | None = None
+    dry_run: bool = False
+
+
+# --- Quick Transfer ---
+
+class ShareStartRequest(BaseModel):
+    file_paths: list[str]
+    port: int = 0
+
+
+# --- Smart Optimizer ---
+
+class DeleteEmptyFoldersRequest(BaseModel):
+    paths: list[str]
+
+
+class ScanPathsRequest(BaseModel):
+    root_paths: list[str]
+
+
+class MergeFoldersRequest(BaseModel):
+    source: str
+    destination: str
+    dry_run: bool = True
+
+
+class MoveFilesRequest(BaseModel):
+    paths: list[str]
+    destination: str
+
+
+# --- Internet Transfer ---
+
+class InternetUploadRequest(BaseModel):
+    file_path: str
+    expires: str = "14d"
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -152,6 +276,10 @@ async def api_latest_session():
 @app.get("/dashboard")
 async def api_dashboard():
     """Aggregated dashboard data loaded from cached SQLite results."""
+    cached = _cache.get("dashboard", ttl=30)
+    if cached is not None:
+        return cached
+
     sid = await get_latest_session_id()
     if sid is None:
         return {"has_data": False}
@@ -187,7 +315,10 @@ async def api_dashboard():
             "bytes": total_junk,
         })
 
-    return {
+    # Real-time system stats for dashboard widget
+    sys_stats = sm.get_full_snapshot()
+
+    result = {
         "has_data": True,
         "session_id": sid,
         "drives": drives,
@@ -196,7 +327,10 @@ async def api_dashboard():
         "health_score": health_score,
         "junk_bytes": total_junk,
         "quick_wins": quick_wins,
+        "system": sys_stats,
     }
+    _cache.set("dashboard", result)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -449,6 +583,307 @@ async def api_register_task(interval_days: int = 7):
 
 
 # ---------------------------------------------------------------------------
+# File Explorer
+# ---------------------------------------------------------------------------
+
+@app.get("/explorer/list")
+async def api_explorer_list(path: str, show_hidden: bool = False):
+    try:
+        return fe.list_directory(path, show_hidden=show_hidden)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except NotADirectoryError as e:
+        raise HTTPException(400, str(e))
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+
+
+@app.get("/explorer/quick-access")
+async def api_quick_access():
+    return {"locations": fe.get_quick_access()}
+
+
+@app.post("/explorer/folder")
+async def api_create_folder(req: CreateFolderRequest):
+    try:
+        return fe.create_folder(req.parent_path, req.name)
+    except (PermissionError, FileExistsError) as e:
+        raise HTTPException(403, str(e))
+
+
+@app.post("/explorer/rename")
+async def api_rename(req: RenameRequest):
+    try:
+        return fe.rename_item(req.path, req.new_name)
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.post("/explorer/move")
+async def api_move(req: MoveRequest):
+    return fe.move_items(req.paths, req.destination)
+
+
+@app.post("/explorer/copy")
+async def api_copy(req: CopyRequest):
+    return fe.copy_items(req.paths, req.destination)
+
+
+@app.post("/explorer/delete")
+async def api_explorer_delete(req: DeleteItemsRequest):
+    return fe.delete_items(req.paths)
+
+
+@app.post("/explorer/open")
+async def api_open_file(req: OpenFileRequest):
+    return fe.open_file(req.path)
+
+
+@app.post("/explorer/open-in-explorer")
+async def api_open_in_explorer(req: OpenFileRequest):
+    return fe.open_in_explorer(req.path)
+
+
+@app.get("/explorer/search")
+async def api_explorer_search(root_path: str, query: str, limit: int = 200):
+    return {"results": fe.search_files(root_path, query, limit)}
+
+
+# ---------------------------------------------------------------------------
+# Media Organizer
+# ---------------------------------------------------------------------------
+
+@app.post("/media/preview")
+async def api_media_preview(req: MediaPreviewRequest):
+    return mo.preview_organization(req.scan_paths, req.categories)
+
+
+@app.post("/media/organize")
+async def api_media_organize(req: MediaOrganizeRequest):
+    return mo.organize_media(req.scan_paths, req.categories, dry_run=req.dry_run)
+
+
+@app.get("/media/library-stats")
+async def api_library_stats():
+    return mo.get_library_stats()
+
+
+# ---------------------------------------------------------------------------
+# Quick Transfer
+# ---------------------------------------------------------------------------
+
+@app.post("/transfer/start")
+async def api_transfer_start(req: ShareStartRequest):
+    result = qt.start_share(req.file_paths, port=req.port)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@app.post("/transfer/stop")
+async def api_transfer_stop():
+    return qt.stop_share()
+
+
+@app.get("/transfer/status")
+async def api_transfer_status():
+    return qt.get_share_status()
+
+
+# ---------------------------------------------------------------------------
+# Smart Optimizer
+# ---------------------------------------------------------------------------
+
+@app.post("/optimizer/empty-folders/scan")
+async def api_scan_empty(req: ScanPathsRequest):
+    return {"folders": so.scan_empty_folders(req.root_paths)}
+
+
+@app.post("/optimizer/empty-folders/delete")
+async def api_delete_empty(req: DeleteEmptyFoldersRequest):
+    return so.delete_empty_folders(req.paths)
+
+
+@app.post("/optimizer/similar-folders/scan")
+async def api_similar_folders(req: ScanPathsRequest):
+    return {"groups": so.find_similar_folders(req.root_paths)}
+
+
+@app.post("/optimizer/merge-folders")
+async def api_merge_folders(req: MergeFoldersRequest):
+    return so.merge_folders(req.source, req.destination, dry_run=req.dry_run)
+
+
+@app.get("/optimizer/c-drive-hogs")
+async def api_c_drive_hogs(min_size_mb: int = 100, top_n: int = 25):
+    return {"hogs": so.get_c_drive_hogs(min_size_mb=min_size_mb, top_n=top_n)}
+
+
+@app.get("/optimizer/drive-placement")
+async def api_drive_placement():
+    return so.get_drive_placement_advice()
+
+
+@app.post("/optimizer/scattered-files/scan")
+async def api_scattered_files(req: ScanPathsRequest):
+    return {"files": so.find_scattered_files(req.root_paths)}
+
+
+@app.post("/optimizer/scattered-files/consolidate")
+async def api_consolidate_scattered(req: MoveFilesRequest):
+    return fe.move_items(req.paths, req.destination)
+
+
+# ---------------------------------------------------------------------------
+# Deep Analyzer
+# ---------------------------------------------------------------------------
+
+@app.post("/analyzer/run")
+async def api_analyzer_run(req: ScanPathsRequest, top_files: int = 50):
+    return da.analyze(req.root_paths, top_files=top_files)
+
+
+@app.post("/analyzer/largest-files")
+async def api_largest_files(req: ScanPathsRequest, limit: int = 100):
+    return {"files": da.get_largest_files(req.root_paths, limit=limit)}
+
+
+@app.post("/analyzer/extension-stats")
+async def api_extension_stats(req: ScanPathsRequest):
+    return {"stats": da.get_extension_stats(req.root_paths)}
+
+
+@app.post("/analyzer/age-distribution")
+async def api_age_distribution(req: ScanPathsRequest):
+    return {"buckets": da.get_age_distribution(req.root_paths)}
+
+
+@app.post("/analyzer/orphaned-files")
+async def api_orphaned_files(req: ScanPathsRequest, limit: int = 200):
+    return {"files": da.find_orphaned_files(req.root_paths, limit=limit)}
+
+
+@app.get("/analyzer/folder-tree")
+async def api_folder_tree(root_path: str, depth: int = 3):
+    return da.get_folder_tree(root_path, depth=depth)
+
+
+# ---------------------------------------------------------------------------
+# Internet & Bluetooth Transfer
+# ---------------------------------------------------------------------------
+
+@app.post("/transfer/internet-upload")
+async def api_internet_upload(req: InternetUploadRequest):
+    result = await it_.upload_file(req.file_path, expires=req.expires)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@app.post("/transfer/bluetooth")
+async def api_bluetooth_send():
+    return it_.launch_bluetooth_send()
+
+
+# ---------------------------------------------------------------------------
+# System Monitor
+# ---------------------------------------------------------------------------
+
+@app.get("/system/stats")
+async def api_system_stats():
+    """Real-time CPU, RAM, disk I/O, and network snapshot."""
+    return sm.get_full_snapshot()
+
+
+@app.get("/system/processes")
+async def api_system_processes(limit: int = 15):
+    """Top processes by CPU usage."""
+    return {"processes": sm.get_top_processes(limit=limit)}
+
+
+# ---------------------------------------------------------------------------
+# One-click full cleanup
+# ---------------------------------------------------------------------------
+
+class OneClickCleanupRequest(BaseModel):
+    junk_session_id: Optional[int] = None
+    delete_empty_folders: bool = True
+    root_paths: list[str] = []
+
+
+@app.post("/cleanup/one-click")
+async def api_one_click_cleanup(req: OneClickCleanupRequest):
+    """Perform safe automatic cleanup: junk files + empty folders."""
+    report: dict = {"steps": [], "errors": []}
+
+    # Step 1: Junk files
+    try:
+        sid = req.junk_session_id
+        if sid is None:
+            sid = await get_latest_session_id()
+        junk_cats = scan_junk(sid or 0)
+        all_ids = [c["id"] for c in junk_cats if c.get("exists") and c.get("size_bytes", 0) > 0]
+        if all_ids:
+            result = delete_junk_categories(all_ids)
+            report["steps"].append({
+                "step": "Junk Cleaner",
+                "deleted": result.get("deleted", 0),
+                "errors": result.get("errors", []),
+            })
+        else:
+            report["steps"].append({"step": "Junk Cleaner", "deleted": 0, "errors": []})
+    except Exception as exc:
+        report["errors"].append(f"Junk clean failed: {exc}")
+
+    # Step 2: Empty folders
+    if req.delete_empty_folders and req.root_paths:
+        try:
+            empty = so.scan_empty_folders(req.root_paths)
+            if empty:
+                result = so.delete_empty_folders([f["path"] for f in empty])
+                report["steps"].append({
+                    "step": "Empty Folders",
+                    "deleted": result.get("deleted", 0),
+                    "errors": result.get("errors", []),
+                })
+            else:
+                report["steps"].append({"step": "Empty Folders", "deleted": 0, "errors": []})
+        except Exception as exc:
+            report["errors"].append(f"Empty folder clean failed: {exc}")
+
+    _cache.invalidate("dashboard")
+    return report
+
+
+# ---------------------------------------------------------------------------
+# Report export
+# ---------------------------------------------------------------------------
+
+@app.get("/report/export")
+async def api_export_report(session_id: Optional[int] = None):
+    """Generate and return a self-contained HTML storage report."""
+    html = await re_.generate_html_report(session_id=session_id)
+    return Response(
+        content=html,
+        media_type="text/html",
+        headers={"Content-Disposition": "attachment; filename=storage-sense-report.html"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cache control
+# ---------------------------------------------------------------------------
+
+@app.post("/cache/invalidate")
+async def api_invalidate_cache():
+    """Manually invalidate all cached responses (called after scan completes)."""
+    _cache.invalidate_all()
+    return {"cleared": True}
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
@@ -458,6 +893,27 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
+
+    # ── File-based logging for packaged (PyInstaller) builds ─────────────────
+    # When PyInstaller compiles with console=False, stdout/stderr are suppressed.
+    # We redirect all logging to a file so startup errors can be diagnosed.
+    log_dir = Path(
+        os.getenv("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+    ) / "WindowsStorageSense"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "backend.log"
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler(log_file, encoding="utf-8"),
+            # Only add StreamHandler if stdout is actually available
+            *([] if getattr(sys, "frozen", False) else [logging.StreamHandler(sys.stdout)]),
+        ],
+    )
+    logger = logging.getLogger("storageSense")
+    logger.info("Backend starting — log: %s", log_file)
 
     if args.background_scan:
         # Called by Task Scheduler

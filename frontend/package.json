@@ -1,14 +1,18 @@
 {
   "name": "windows-storage-sense",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Windows Storage & System Intelligence Utility",
   "main": "electron/main.js",
+  "author": {
+    "name": "WindowsStorageSense"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:react\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
     "dev:react": "vite",
     "dev:electron": "cross-env NODE_ENV=development electron .",
-    "build": "vite build && electron-builder build --win",
     "build:react": "vite build",
+    "build:electron": "electron-builder build --win",
+    "build": "npm run build:react && npm run build:electron",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -38,13 +42,10 @@
   "build": {
     "appId": "com.windowsstoragesense.app",
     "productName": "WindowsStorageSense",
-    "win": {
-      "target": "nsis",
-      "icon": "public/icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+    "copyright": "Copyright \u00a9 2025 WindowsStorageSense",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "public"
     },
     "files": [
       "dist/**/*",
@@ -53,10 +54,42 @@
     ],
     "extraResources": [
       {
-        "from": "../backend",
+        "from": "../backend/dist/main",
         "to": "backend",
-        "filter": ["**/*", "!__pycache__", "!*.pyc"]
+        "filter": [
+          "**/*"
+        ]
       }
-    ]
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "installerHeader": "public/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "StorageSense",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "menuCategory": "Utilities"
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    }
   }
 }

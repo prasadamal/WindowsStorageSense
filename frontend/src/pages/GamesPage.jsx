@@ -52,7 +52,7 @@ export default function GamesPage() {
               checked={showStaleOnly}
               onChange={(e) => setShowStaleOnly(e.target.checked)}
             />
-            Stale only (>90 days)
+            Stale only (&gt;90 days)
           </label>
           <button
             onClick={() => loadGames(true)}
