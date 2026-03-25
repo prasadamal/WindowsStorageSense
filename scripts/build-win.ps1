@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     End-to-end Windows build script for WindowsStorageSense.
     Produces a single NSIS installer: dist/WindowsStorageSense-Setup.exe
@@ -6,9 +6,9 @@
 .DESCRIPTION
     Steps performed:
       1. Generate icon.ico / tray-icon.png via Pillow
-      2. Compile Python backend with PyInstaller → backend/dist/main/main.exe
-      3. Build React frontend with Vite → frontend/dist/
-      4. Package everything with electron-builder → NSIS installer
+      2. Compile Python backend with PyInstaller -> backend/dist/main/main.exe
+      3. Build React frontend with Vite -> frontend/dist/
+      4. Package everything with electron-builder -> NSIS installer
 
 .USAGE
     # From the repository root:
@@ -42,33 +42,33 @@ $ScriptsDir  = Join-Path $Root 'scripts'
 
 function Step([string]$msg) {
     Write-Host ""
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+    Write-Host "--------------------------------------------------" -ForegroundColor Cyan
     Write-Host "  $msg" -ForegroundColor White
-    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+    Write-Host "--------------------------------------------------" -ForegroundColor Cyan
 }
 
 function Die([string]$msg) {
-    Write-Host "✗ ERROR: $msg" -ForegroundColor Red
+    Write-Host "[X] ERROR: $msg" -ForegroundColor Red
     exit 1
 }
 
 function Ok([string]$msg) {
-    Write-Host "  ✓ $msg" -ForegroundColor Green
+    Write-Host "  [OK] $msg" -ForegroundColor Green
 }
 
-# ── 0. Sanity checks ──────────────────────────────────────────────────────────
+# -- 0. Sanity checks ----------------------------------------------------------
 
 Step "Checking prerequisites"
 
-$python = (Get-Command python -ErrorAction SilentlyContinue)?.Source
+$python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) { Die "Python not found in PATH." }
 Ok "Python: $(python --version)"
 
-$node = (Get-Command node -ErrorAction SilentlyContinue)?.Source
+$node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) { Die "Node.js not found in PATH." }
 Ok "Node.js: $(node --version)"
 
-# ── 1. Icons ─────────────────────────────────────────────────────────────────
+# -- 1. Icons -----------------------------------------------------------------
 
 if (-not $SkipIcons) {
     Step "Generating icons"
@@ -78,7 +78,7 @@ if (-not $SkipIcons) {
     Ok "Icons written to frontend/public/"
 }
 
-# ── 2. PyInstaller (Python backend → main.exe) ────────────────────────────────
+# -- 2. PyInstaller (Python backend -> main.exe) --------------------------------
 
 if (-not $SkipPyInstaller) {
     Step "Installing Python dependencies"
@@ -90,11 +90,11 @@ if (-not $SkipPyInstaller) {
     Set-Location $BackendDir
     pyinstaller backend.spec --clean --noconfirm
     if ($LASTEXITCODE -ne 0) { Die "PyInstaller failed." }
-    Ok "Backend compiled → backend/dist/main/main.exe"
+    Ok "Backend compiled -> backend/dist/main/main.exe"
     Set-Location $Root
 }
 
-# ── 3. React/Vite frontend ────────────────────────────────────────────────────
+# -- 3. React/Vite frontend ----------------------------------------------------
 
 if (-not $SkipFrontend) {
     Step "Installing npm dependencies"
@@ -106,28 +106,28 @@ if (-not $SkipFrontend) {
     Step "Building React frontend"
     npm run build:react
     if ($LASTEXITCODE -ne 0) { Die "Vite build failed." }
-    Ok "Frontend built → frontend/dist/"
+    Ok "Frontend built -> frontend/dist/"
     Set-Location $Root
 }
 
-# ── 4. Electron Builder (NSIS installer) ─────────────────────────────────────
+# -- 4. Electron Builder (NSIS installer) -------------------------------------
 
 if (-not $SkipElectron) {
     Step "Building Windows installer with electron-builder"
     Set-Location $FrontendDir
-    npx electron-builder build --win --config
+    npx electron-builder build --win
     if ($LASTEXITCODE -ne 0) { Die "electron-builder failed." }
-    Ok "Installer built → frontend/dist-electron/"
+    Ok "Installer built -> frontend/dist-electron/"
     Set-Location $Root
 }
 
-# ── Done ──────────────────────────────────────────────────────────────────────
+# -- Done ----------------------------------------------------------------------
 
 Step "Build complete!"
 $installer = Get-ChildItem "$FrontendDir\dist-electron\*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($installer) {
     Write-Host ""
-    Write-Host "  📦 Installer: $($installer.FullName)" -ForegroundColor Yellow
-    Write-Host "  📏 Size:      $([math]::Round($installer.Length / 1MB, 1)) MB" -ForegroundColor Yellow
+    Write-Host "  [EXE] Installer: $($installer.FullName)" -ForegroundColor Yellow
+    Write-Host "  [Size] Size:      $([math]::Round($installer.Length / 1MB, 1)) MB" -ForegroundColor Yellow
 }
 Write-Host ""
