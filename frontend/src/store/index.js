@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from './api';
+import api from '../api';
 
 const useStore = create((set, get) => ({
   // Session / scan

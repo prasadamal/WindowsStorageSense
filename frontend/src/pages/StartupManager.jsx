@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Rocket, RefreshCw, Toggle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Rocket, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react';
 import api from '../api';
 
 const IMPACT_BADGE = {
