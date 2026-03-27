@@ -39,8 +39,8 @@ if [ "$SKIP_ICONS" = false ]; then
   step "Generating icons"
   # Note: installs Pillow into the current Python environment.
   # In CI, this runs inside a fresh virtual env or container, so no conflicts.
-  # For local development, use `pip install Pillow` inside your own venv first.
-  pip install Pillow --quiet
+  # For local development, use `python3 -m pip install Pillow` inside your own venv first.
+  python3 -m pip install Pillow --quiet
   python3 "$SCRIPTS/generate-icon.py"
   ok "Icons generated"
 fi
@@ -48,8 +48,8 @@ fi
 # ── Python backend ────────────────────────────────────────────────────────────
 if [ "$SKIP_PYINSTALLER" = false ]; then
   step "Installing Python deps + PyInstaller"
-  pip install -r "$BACKEND/requirements.txt" --quiet
-  pip install pyinstaller --quiet
+  python3 -m pip install -r "$BACKEND/requirements.txt" --quiet
+  python3 -m pip install pyinstaller --quiet
   ok "Python deps installed"
 
   step "Running PyInstaller"

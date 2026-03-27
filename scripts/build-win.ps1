@@ -21,7 +21,7 @@
     Requirements:
       - Python 3.9+ in PATH
       - Node.js 18+ in PATH
-      - pip install pyinstaller Pillow (done automatically)
+      - python -m pip install pyinstaller Pillow (done automatically)
       - npm install (done automatically)
 #>
 
@@ -72,7 +72,7 @@ Ok "Node.js: $(node --version)"
 
 if (-not $SkipIcons) {
     Step "Generating icons"
-    pip install Pillow --quiet
+    python -m pip install Pillow --quiet
     python "$ScriptsDir\generate-icon.py"
     if ($LASTEXITCODE -ne 0) { Die "Icon generation failed." }
     Ok "Icons written to frontend/public/"
@@ -82,8 +82,8 @@ if (-not $SkipIcons) {
 
 if (-not $SkipPyInstaller) {
     Step "Installing Python dependencies"
-    pip install -r "$BackendDir\requirements.txt" --quiet
-    pip install pyinstaller --quiet
+    python -m pip install -r "$BackendDir\requirements.txt" --quiet
+    python -m pip install pyinstaller --quiet
     Ok "Python deps installed"
 
     Step "Compiling Python backend with PyInstaller"
