@@ -56,6 +56,13 @@ function Ok([string]$msg) {
     Write-Host "  [OK] $msg" -ForegroundColor Green
 }
 
+# -- Ensure Python can locate its own standard library -------------------------
+# A stale or wrong PYTHONHOME/PYTHONPATH causes the fatal
+# "Could not find platform independent libraries" error at Python startup.
+# Clearing them lets Python resolve its prefix from the executable location.
+Remove-Item Env:PYTHONHOME  -ErrorAction SilentlyContinue
+Remove-Item Env:PYTHONPATH  -ErrorAction SilentlyContinue
+
 # -- 0. Sanity checks ----------------------------------------------------------
 
 Step "Checking prerequisites"

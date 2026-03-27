@@ -18,6 +18,13 @@ BACKEND="$ROOT/backend"
 FRONTEND="$ROOT/frontend"
 SCRIPTS="$ROOT/scripts"
 
+# Ensure Python can locate its own standard library.
+# A stale or wrong PYTHONHOME/PYTHONPATH causes the fatal
+# "Could not find platform independent libraries" error at startup.
+# Unsetting them lets Python resolve its prefix from the executable location.
+unset PYTHONHOME 2>/dev/null || true
+unset PYTHONPATH 2>/dev/null || true
+
 SKIP_ICONS=false
 SKIP_PYINSTALLER=false
 SKIP_FRONTEND=false
