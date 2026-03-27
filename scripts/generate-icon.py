@@ -68,14 +68,13 @@ ACCENT_COLOR     = (59, 130, 246, 255)   # brand-500 blue
 # icon.ico — multi-size ICO for the app window and taskbar
 # -------------------------------------------------------------------------
 ico_sizes = [16, 32, 48, 64, 128, 256]
-ico_images = [_draw_logo(s, BACKGROUND_COLOR, FOREGROUND_COLOR, ACCENT_COLOR) for s in ico_sizes]
 ico_path = OUTPUT_DIR / "icon.ico"
-# Save as ICO with all sizes embedded
-ico_images[0].save(
+# Save as ICO with all sizes embedded — Pillow's ICO plugin requires a single
+# source image plus a `sizes` list; it resizes internally.
+_draw_logo(max(ico_sizes), BACKGROUND_COLOR, FOREGROUND_COLOR, ACCENT_COLOR).save(
     ico_path,
     format="ICO",
     sizes=[(s, s) for s in ico_sizes],
-    append_images=ico_images[1:],
 )
 print(f"✓ Written {ico_path}")
 

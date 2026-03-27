@@ -150,7 +150,7 @@ export default function StorageAnalyzer() {
           <div className="divide-y divide-slate-700/50">
             {categories.map((c) => (
               <div key={c.category} className="flex items-center gap-3 py-3">
-                <span className="text-xl w-7 text-center">{CATEGORY_ICONS[c.category] || '📁'}</span>
+                <span className="text-xl w-7 h-7 inline-flex items-center justify-center flex-shrink-0">{CATEGORY_ICONS[c.category] || '📁'}</span>
                 <div className="flex-1">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-200 font-medium">{c.category}</span>
@@ -172,7 +172,7 @@ export default function StorageAnalyzer() {
             {topFiles.map((f, i) => (
               <div key={f.path} className="flex items-center gap-3 text-sm py-1.5 border-b border-slate-700/50 last:border-0">
                 <span className="text-slate-500 w-6 text-right flex-shrink-0">{i + 1}</span>
-                <span className="flex-shrink-0">{CATEGORY_ICONS[f.category] || '📄'}</span>
+                <span className="text-base flex-shrink-0">{CATEGORY_ICONS[f.category] || '📄'}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-slate-200 truncate">{f.name}</p>
                   <p className="text-xs text-slate-500 truncate">{f.path}</p>
