@@ -95,7 +95,7 @@ if (-not $SkipPyInstaller) {
 
     Step "Compiling Python backend with PyInstaller"
     Set-Location $BackendDir
-    pyinstaller backend.spec --clean --noconfirm
+    python -m PyInstaller backend.spec --clean --noconfirm
     if ($LASTEXITCODE -ne 0) { Die "PyInstaller failed." }
     Ok "Backend compiled -> backend/dist/main/main.exe"
     Set-Location $Root
