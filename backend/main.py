@@ -447,7 +447,9 @@ async def api_stale_files(session_id: Optional[int] = None, threshold_days: int 
 async def api_junk_scan(session_id: Optional[int] = None):
     if session_id is None:
         session_id = await get_latest_session_id()
-    categories = scan_junk(session_id or 0)
+    if session_id is None:
+        return {"categories": []}
+    categories = scan_junk(session_id)
     return {"categories": categories}
 
 

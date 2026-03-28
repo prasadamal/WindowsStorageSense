@@ -58,7 +58,7 @@ def _get_junk_categories() -> list[dict]:
         {
             "id": "windows_temp",
             "label": "Windows Temp Folder",
-            "paths": [os.path.join(system_drive, "\\Windows\\Temp")],
+            "paths": [os.path.join(system_drive + os.sep, "Windows", "Temp")],
         },
         {
             "id": "user_temp",
@@ -68,7 +68,7 @@ def _get_junk_categories() -> list[dict]:
         {
             "id": "prefetch",
             "label": "Prefetch Files",
-            "paths": [os.path.join(system_drive, "\\Windows\\Prefetch")],
+            "paths": [os.path.join(system_drive + os.sep, "Windows", "Prefetch")],
         },
         {
             "id": "thumbnail_cache",
@@ -80,12 +80,12 @@ def _get_junk_categories() -> list[dict]:
         {
             "id": "windows_update_cache",
             "label": "Windows Update Download Cache",
-            "paths": [os.path.join(system_drive, "\\Windows\\SoftwareDistribution\\Download")],
+            "paths": [os.path.join(system_drive + os.sep, "Windows", "SoftwareDistribution", "Download")],
         },
         {
             "id": "recycle_bin",
             "label": "Recycle Bin",
-            "paths": [os.path.join(system_drive, "\\$Recycle.Bin")],
+            "paths": [os.path.join(system_drive + os.sep, "$Recycle.Bin")],
         },
         {
             "id": "chrome_cache",
@@ -114,28 +114,28 @@ def _get_junk_categories() -> list[dict]:
             "id": "log_files",
             "label": "System Log Files",
             "paths": [
-                os.path.join(system_drive, "\\Windows\\Logs"),
+                os.path.join(system_drive + os.sep, "Windows", "Logs"),
                 os.path.join(local_app_data, r"Microsoft\Windows\WER"),
             ],
         },
         {
             "id": "windows_old",
             "label": "Windows.old Folder",
-            "paths": [os.path.join(system_drive, "\\Windows.old")],
+            "paths": [os.path.join(system_drive + os.sep, "Windows.old")],
         },
         {
             "id": "crash_dumps",
             "label": "Crash Dump Files",
             "paths": [
                 os.path.join(local_app_data, r"CrashDumps"),
-                os.path.join(system_drive, "\\Windows\\Minidump"),
-                os.path.join(system_drive, "\\Windows\\MEMORY.DMP"),
+                os.path.join(system_drive + os.sep, "Windows", "Minidump"),
+                os.path.join(system_drive + os.sep, "Windows", "MEMORY.DMP"),
             ],
         },
         {
             "id": "delivery_optimization",
             "label": "Delivery Optimization Cache",
-            "paths": [os.path.join(system_drive, "\\Windows\\SoftwareDistribution\\DeliveryOptimization")],
+            "paths": [os.path.join(system_drive + os.sep, "Windows", "SoftwareDistribution", "DeliveryOptimization")],
         },
         {
             "id": "npm_cache",

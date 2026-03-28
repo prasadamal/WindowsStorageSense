@@ -290,8 +290,9 @@ def get_c_drive_hogs(min_size_mb: int = 100, top_n: int = 25) -> list[dict]:
         if p.exists():
             candidates.append(p)
 
-    # 2. Top-level folders on C: that aren't system
-    c_drive = pathlib.Path("C:\\")
+    # 2. Top-level folders on system drive that aren't system
+    system_drive = os.environ.get("SystemDrive", "C:")
+    c_drive = pathlib.Path(system_drive + os.sep)
     if c_drive.exists():
         try:
             for child in c_drive.iterdir():
