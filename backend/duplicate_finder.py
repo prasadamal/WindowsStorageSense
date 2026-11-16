@@ -77,7 +77,10 @@ def find_duplicates(session_id: int, include_images: bool = True) -> list[dict]:
         result_groups: list[dict] = []
 
         for sg in size_groups:
-            file_ids = [int(x) for x in sg["file_ids"].split(",")]
+            raw_ids = sg["file_ids"]
+            if not raw_ids:
+                continue
+            file_ids = [int(x) for x in raw_ids.split(",")]
             file_rows = conn.execute(
                 "SELECT id, path, size_bytes, extension FROM files WHERE id IN ({})".format(
                     ",".join("?" * len(file_ids))

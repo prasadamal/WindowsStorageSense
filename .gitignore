@@ -23,6 +23,7 @@ frontend/.vite/
 
 # Electron build output
 frontend/release/
+frontend/dist-electron/
 
 # SQLite database
 *.db

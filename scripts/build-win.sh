@@ -62,6 +62,7 @@ if [ "$SKIP_PYINSTALLER" = false ]; then
   step "Running PyInstaller"
   cd "$BACKEND"
   python3 -m PyInstaller backend.spec --clean --noconfirm
+  if [ $? -ne 0 ]; then die "PyInstaller failed."; fi
   ok "Backend compiled"
   cd "$ROOT"
 fi
