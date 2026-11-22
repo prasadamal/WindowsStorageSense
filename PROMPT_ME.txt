@@ -1,0 +1,31 @@
+WINDOWSSTORAGESENSE — PROMPT ME
+================================
+Last updated: 23 November 2026. Founder: Amal Prasad (company Ariyoo).
+Status: OPEN-SOURCE IT UNDER A NEW NAME, OR LEAVE IT.
+
+THE IDEA
+A Windows desktop utility combining WinDirStat + Revo Uninstaller + TreeSize + System Monitor:
+disk treemap, cleaner, duplicates, large files, uninstaller, monitor (~20 features).
+Stack: Electron 30 + React 18 + Tailwind (frontend), Python 3.11 FastAPI on 127.0.0.1:8765
+(backend), SQLite, PyInstaller + electron-builder NSIS installer.
+
+WHERE IT STANDS (16 Nov analysis)
+- Built in ~4 days in March, untouched since; no tests, tags or releases; installer unsigned
+  (SmartScreen warnings); no auto-update.
+- CI red on main: scripts/generate-icon.py prints a check mark the Windows cp1252 console can't
+  encode (one-line fix, not yet pushed).
+- The name won't survive: "Windows" is Microsoft's trademark and "Storage Sense" is a built-in
+  Windows feature.
+- smartnotes/ is an unrelated notes app (an early ancestor of Forward) — remove it.
+
+THE ONLY ANGLE THAT CAN WORK
+An open-source, no-telemetry, all-in-one cleaner with a modern UI (free trusted competitors:
+WizTree, WinDirStat, BleachBit, Windows' own Storage Sense; nobody will pay for a newcomer).
+Success = GitHub stars and a portfolio piece, not income.
+If pursued: rename, fix CI, tag a release; cut to 5 features (disk map, junk cleaner,
+duplicates, large files, uninstaller); add a dry-run mode and tests for every delete path;
+publish to winget; post to r/Windows11 and Hacker News.
+
+ON HOLD
+All work, until one of the mobile apps has users (see github.com/prasadamal/ariyoo-clone
+PROMPT_ME.txt).
